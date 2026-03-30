@@ -1,6 +1,6 @@
 # Egg Init System
 
-Ultrasmall init system written in Cent.
+Ultrasmall init system.
 
 ![Preview](assets/preview.png)
 
