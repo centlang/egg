@@ -1,23 +1,74 @@
 with posix;
 with c;
 with std::ffi;
+with std::io;
 
 const SHELL_CSTR = "/bin/sh\0";
 
-fn reap(_sig: c::int) {
-    while posix::waitpid(-1, null, posix::WNOHANG) > 0 {}
+type Service {
+    cmd: []u8,
+    pid: posix::pid_t,
 }
 
-fn main() {
-    posix::signal(posix::SIGCHLD, &reap);
+mut services: []mut Service;
 
-    if posix::fork() == 0 {
+fn service_up(s: *mut Service) {
+    if s.pid < 1 {
+        io::print("egg: starting: ");
+    } else {
+        io::print("egg: restarting: ");
+    }
+
+    io::println(s.cmd);
+
+    let pid = posix::fork();
+
+    if pid == 0 {
+        mut cstr: [s.cmd.len + 1]u8 = undefined;
+        ffi::cstr_to(cstr, s.cmd);
+
         posix::execl(
             ffi::as_cstr(SHELL_CSTR), ffi::as_cstr(SHELL_CSTR),
+            ffi::as_cstr("-c\0"), ffi::as_cstr(cstr),
             null as ?*c::char
         );
 
         posix::_exit(1);
+    }
+
+    s.pid = pid;
+}
+
+fn on_exit(pid: posix::pid_t) {
+    for mut s in services {
+        if s.pid == pid {
+            service_up(&s);
+        }
+    }
+}
+
+fn sigchld(_sig: c::int) {
+    while true {
+        let pid = posix::waitpid(-1, null, posix::WNOHANG);
+
+        if pid < 1 {
+            return;
+        }
+
+        on_exit(pid);
+    }
+}
+
+fn main() {
+    services = [_]Service{
+        Service { cmd: "/bin/sh", pid: -1 },
+        Service { cmd: "sleep 15; echo 'restart this process'", pid: -1 }
+    };
+
+    posix::signal(posix::SIGCHLD, &sigchld);
+
+    for mut s in services {
+        service_up(&s);
     }
 
     while true {
