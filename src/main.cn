@@ -59,6 +59,14 @@ fn sigchld(_sig: c::int) {
     }
 }
 
+fn sig_propagate(sig: c::int) {
+    for s in services {
+        if s.pid > 0 {
+            posix::kill(s.pid, sig);
+        }
+    }
+}
+
 fn main() {
     services = [_]Service{
         Service { cmd: "/bin/sh", pid: -1 },
@@ -66,6 +74,8 @@ fn main() {
     };
 
     posix::signal(posix::SIGCHLD, &sigchld);
+    posix::signal(posix::SIGTERM, &sig_propagate);
+    posix::signal(posix::SIGINT, &sig_propagate);
 
     for mut s in services {
         service_up(&s);
