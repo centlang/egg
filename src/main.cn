@@ -1,0 +1,26 @@
+with posix;
+with c;
+with std::ffi;
+
+const SHELL_CSTR = "/bin/sh\0";
+
+fn reap(_sig: c::int) {
+    while posix::waitpid(-1, null, posix::WNOHANG) > 0 {}
+}
+
+fn main() {
+    posix::signal(posix::SIGCHLD, &reap);
+
+    if posix::fork() == 0 {
+        posix::execl(
+            ffi::as_cstr(SHELL_CSTR), ffi::as_cstr(SHELL_CSTR),
+            null as ?*c::char
+        );
+
+        posix::_exit(1);
+    }
+
+    while true {
+        posix::pause();
+    }
+}
