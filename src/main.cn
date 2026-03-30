@@ -68,6 +68,10 @@ fn sig_propagate(sig: c::int) {
 }
 
 fn main() {
+    if posix::getpid() != 1 {
+        core::panic("not ran as PID 1");
+    }
+
     services = [_]Service{
         Service { cmd: "/bin/sh", pid: -1 },
         Service { cmd: "sleep 15; echo 'restart this process'", pid: -1 }
